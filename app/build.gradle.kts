@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.pressure_sensor"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.pressure_sensor"
         minSdk = 26
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
