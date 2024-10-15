@@ -2,6 +2,7 @@ package com.pressure_sensor;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -9,6 +10,8 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -16,6 +19,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.bluetooth.le.ScanResult;
+import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -57,51 +62,53 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
                     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
 
-                // Permission is not granted
                 ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                        new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
                                 Manifest.permission.ACCESS_COARSE_LOCATION,
-                                Manifest.permission.BLUETOOTH_CONNECT},
+                                Manifest.permission.BLUETOOTH_CONNECT,
+                                Manifest.permission.BLUETOOTH_SCAN
+                        },
                         REQUEST_ALL_PERMISSION);
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
                     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
-                // Permission is not granted
                 ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION},
+                        new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                        },
                         REQUEST_ALL_PERMISSION);
             }
         }
     }
 
 
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_ALL_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permissions granted
-                Toast.makeText(this, "Permissions Granted", Toast.LENGTH_SHORT).show();
-            } else {
-                // Permissions denied
-                Toast.makeText(this, "Permissions Denied", Toast.LENGTH_SHORT).show();
-            }
+        if (requestCode == REQUEST_ALL_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Permissions Granted", Toast.LENGTH_SHORT).show();
+            startBleScan();  // Start scanning after permissions are granted
+        } else {
+            Toast.makeText(this, "Permissions Denied", Toast.LENGTH_SHORT).show();
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_CANCELED) {
-            // If the request to turn on Bluetooth is not accepted
-            Toast.makeText(this, "Bluetooth is disabled", Toast.LENGTH_SHORT).show();
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_OK) {
+            startBleScan();  // Start scanning after Bluetooth is enabled
         }
     }
+
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
@@ -131,6 +138,42 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private void startBleScan() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+            BluetoothLeScanner scanner = bluetoothAdapter.getBluetoothLeScanner();
+            if (scanner != null) {
+                scanner.startScan(new ScanCallback() {
+                    @Override
+                    public void onScanResult(int callbackType, ScanResult result) {
+                        super.onScanResult(callbackType, result);
+                        BluetoothDevice device = result.getDevice();
+                        if (device.getName() != null && device.getName().equals("ESP32 Voltage Meter")) {
+                            scanner.stopScan(this);
+                            connectToDevice(device);
+                        }
+                    }
 
-    // You would also have additional methods here for handling BLE scanning, connection, etc.
+                    @Override
+                    public void onBatchScanResults(List<ScanResult> results) {
+                        super.onBatchScanResults(results);
+                    }
+
+                    @Override
+                    public void onScanFailed(int errorCode) {
+                        super.onScanFailed(errorCode);
+                    }
+                });
+            }
+        } else {
+            // Permission not granted
+            Toast.makeText(this, "BLE scan permission not granted", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void connectToDevice(BluetoothDevice device) {
+        BluetoothGatt bluetoothGatt = device.connectGatt(this, false, gattCallback);
+    }
+
+
+
 }
