@@ -17,6 +17,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.bluetooth.le.ScanResult;
@@ -114,7 +115,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                gatt.discoverServices();
+                Log.d("BLE", "Connected to GATT server. Attempting to start service discovery: " + gatt.discoverServices());
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.d("BLE", "Disconnected from GATT server.");
             }
         }
 
@@ -124,8 +127,17 @@ public class MainActivity extends AppCompatActivity {
                 BluetoothGattService service = gatt.getService(UUID.fromString("4fafc201-1fb5-459e-8fcc-c5c9c331914b"));
                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID.fromString("beb5483e-36e1-4688-b7f5-ea07361b26a8"));
                 gatt.setCharacteristicNotification(characteristic, true);
-                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                        UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                if (descriptor != null) {
+                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                    boolean stat = gatt.writeDescriptor(descriptor);
+                    if (!stat) {
+                        Log.e("BLE", "Failed to write descriptor");
+                    }
+                } else {
+                    Log.e("BLE", "Descriptor not found");
+                }
+
                 descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 gatt.writeDescriptor(descriptor);
             }
@@ -133,9 +145,56 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            final String value = characteristic.getStringValue(0);
-            runOnUiThread(() -> textViewValue.setText(value));
+            final String voltageStr = characteristic.getStringValue(0); // "X.XX V"
+            try {
+                // Extract the numeric part from the voltage string
+                String numericPart = voltageStr.replace(" V", ""); // Remove the ' V' part
+                float voltage = Float.parseFloat(numericPart); // Convert string to float
+
+                // Calculate the pressure using the provided equation
+                double pressure = calculatePressure(voltage); // Method to calculate pressure
+
+                // Prepare the display text for the TextView
+                String displayText = String.format("%.2f kPa of pressure at the sensor %.2f Voltage", pressure, voltage);
+
+                // Update UI elements: TextView and SemicircleGaugeView
+                runOnUiThread(() -> {
+                    textViewValue.setText(displayText);
+
+                    // Find the gauge view and update its pressure value
+                    SemicircleGaugeView gaugeView = findViewById(R.id.semicircleGaugeView);
+                    gaugeView.setPressure((float) pressure); // Cast to float if necessary
+                });
+            } catch (NumberFormatException e) {
+                Log.e("BLE", "Failed to parse voltage: " + voltageStr, e);
+            }
         }
+
+        private double calculatePressure(double voltage) {
+            // Assuming the quadratic form: Ax^2 + Bx + C = voltage
+            // Here A, B, and C need to be derived from the equation by rearranging it to the standard quadratic form.
+            float A = (float) -0.000000003;
+            float B = (float) 0.0002;
+            float C = (float)(0.3131 - voltage);
+
+            // Calculate the discriminant
+            float discriminant = B * B - 4 * A * C;
+
+            // Check if discriminant is positive
+            if (discriminant >= 0) {
+                // Two possible solutions for pressure (x)
+                float x1 = (float) ((-B + Math.sqrt(discriminant)) / (2 * A));
+                float x2 = (float) ((-B - Math.sqrt(discriminant)) / (2 * A));
+
+                // Assuming physical constraints mean pressure must be positive and within sensor range
+                return Math.min(x1, x2);
+
+            } else {
+                // No real roots; handle error or use default value
+                return 0; // Default or error value
+            }
+        }
+
     };
 
     private void startBleScan() {
