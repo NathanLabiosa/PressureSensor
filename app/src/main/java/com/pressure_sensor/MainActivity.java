@@ -1,6 +1,8 @@
 package com.pressure_sensor;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -17,15 +19,21 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.bluetooth.le.ScanResult;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
 import java.util.UUID;
@@ -37,10 +45,13 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_ALL_PERMISSION = 2;
 
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        startPeriodicDatabaseCheck();
 
         textViewValue = findViewById(R.id.textViewValue);
 
@@ -55,52 +66,85 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
+        createNotificationChannel();
+
         // Request necessary permissions.
         checkPermissions();
     }
 
     private void checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        List<String> permissionsNeeded = new ArrayList<>();
 
-                ActivityCompat.requestPermissions(this,
-                        new String[]{
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION,
-                                Manifest.permission.BLUETOOTH_CONNECT,
-                                Manifest.permission.BLUETOOTH_SCAN
-                        },
-                        REQUEST_ALL_PERMISSION);
-            }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
-                ActivityCompat.requestPermissions(this,
-                        new String[]{
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                        },
-                        REQUEST_ALL_PERMISSION);
+        // For Android 13+ (API level 33 and above), add the POST_NOTIFICATIONS permission.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
             }
         }
-    }
 
+        // For Android 12 (API level 31/S) and above: check location and Bluetooth permissions.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // For Android M through Android 11: only location permissions are needed.
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+        }
+
+        // If there are any permissions that are not granted, request them.
+        if (!permissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                    permissionsNeeded.toArray(new String[0]),
+                    REQUEST_ALL_PERMISSION);
+        } else {
+            // All permissions are already granted; start BLE scan.
+            startBleScan();
+        }
+    }
 
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_ALL_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Permissions Granted", Toast.LENGTH_SHORT).show();
-            startBleScan();  // Start scanning after permissions are granted
-        } else {
-            Toast.makeText(this, "Permissions Denied", Toast.LENGTH_SHORT).show();
+        if (requestCode == REQUEST_ALL_PERMISSION) {
+            boolean allGranted = true;
+            if (grantResults.length > 0) {
+                for (int result : grantResults) {
+                    if (result != PackageManager.PERMISSION_GRANTED) {
+                        allGranted = false;
+                        break;
+                    }
+                }
+            } else {
+                allGranted = false;
+            }
+
+            if (allGranted) {
+                Toast.makeText(this, "Permissions Granted", Toast.LENGTH_SHORT).show();
+                startBleScan();  // Start scanning after permissions are granted
+            } else {
+                Toast.makeText(this, "Permissions Denied", Toast.LENGTH_SHORT).show();
+            }
         }
     }
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -165,6 +209,22 @@ public class MainActivity extends AppCompatActivity {
                     SemicircleGaugeView gaugeView = findViewById(R.id.semicircleGaugeView);
                     gaugeView.setPressure((float) pressure); // Cast to float if necessary
                 });
+
+                // Create a PressureMeasurement record
+                PressureMeasurement measurement = new PressureMeasurement();
+                measurement.timestamp = System.currentTimeMillis();
+                measurement.pressure = pressure;
+
+                // Insert the record in a background thread
+                new Thread(() -> {
+                    AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+                    db.pressureMeasurementDao().insertMeasurement(measurement);
+                }).start();
+
+                if (pressure > 6000) {
+                    runOnUiThread(() -> sendNotification(pressure));
+                }
+
             } catch (NumberFormatException e) {
                 Log.e("BLE", "Failed to parse voltage: " + voltageStr, e);
             }
@@ -175,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
             // Here A, B, and C need to be derived from the equation by rearranging it to the standard quadratic form.
             float A = (float) -0.000000003;
             float B = (float) 0.0002;
-            float C = (float)(0.3131 - voltage);
+            float C = (float) (0.3131 - voltage);
 
             // Calculate the discriminant
             float discriminant = B * B - 4 * A * C;
@@ -232,6 +292,61 @@ public class MainActivity extends AppCompatActivity {
     private void connectToDevice(BluetoothDevice device) {
         BluetoothGatt bluetoothGatt = device.connectGatt(this, false, gattCallback);
     }
+
+    private void startPeriodicDatabaseCheck() {
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final int delay = 60 * 1000; // 60 seconds
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                new Thread(() -> {
+                    AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+                    List<PressureMeasurement> highPressureMeasurements = db.pressureMeasurementDao().getMeasurementsAbove(6000);
+                    if (!highPressureMeasurements.isEmpty()) {
+                        runOnUiThread(() -> sendNotification(highPressureMeasurements.get(0).pressure));
+                    }
+                }).start();
+
+                // Re-run this check after the delay
+                handler.postDelayed(this, delay);
+            }
+        }, delay);
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Pressure Alerts";
+            String description = "Notifications when pressure exceeds safe levels";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel("pressure_channel", name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+
+
+    private void sendNotification(double pressure) {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "pressure_channel")
+                .setSmallIcon(R.drawable.baseline_priority_high_24) // replace with your icon resource
+                .setContentTitle("High Pressure Alert")
+                .setContentText("Pressure reached " + pressure + " kPa")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+        // Use a unique ID if you want multiple notifications, or a constant ID to update the same one.
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            return;
+        }
+        notificationManager.notify(1, builder.build());
+    }
+
+
 
 
 

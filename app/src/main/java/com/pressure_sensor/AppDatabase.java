@@ -1,18 +1,27 @@
 package com.pressure_sensor;
 
-
-
 import androidx.room.Database;
+import androidx.room.Room;
 import androidx.room.RoomDatabase;
-import com.pressure_sensor.SensorDataDao;
-import com.pressure_sensor.SensorData;
-import androidx.room.TypeConverters;
+import android.content.Context;
 
-@Database(entities = {SensorData.class}, version = 1)
-@TypeConverters(Converters.class)
+@Database(entities = {PressureMeasurement.class}, version = 1, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
-    // Define your DAOs here
-    public abstract SensorDataDao sensorDataDao();
+    public abstract PressureMeasurementDao pressureMeasurementDao();
+
+    // Singleton instance to prevent having multiple instances of the database opened at the same time.
+    private static volatile AppDatabase INSTANCE;
+
+    public static AppDatabase getDatabase(final Context context) {
+        if (INSTANCE == null) {
+            synchronized (AppDatabase.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
+                                    AppDatabase.class, "pressure_database")
+                            .build();
+                }
+            }
+        }
+        return INSTANCE;
+    }
 }
-
-
