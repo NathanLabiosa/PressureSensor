@@ -27,6 +27,7 @@ import android.widget.Toast;
 import android.bluetooth.le.ScanResult;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import androidx.annotation.NonNull;
@@ -47,11 +48,30 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
 
+    public enum Zone {
+        NORMAL,
+        YELLOW,
+        RED
+    }
+
+    private Zone currentZone = Zone.NORMAL;
+    private long yellowZoneStart = 0; // When we first entered yellow
+
+    private Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable analysisRunnable = new Runnable() {
+        @Override
+        public void run() {
+            analyzePressureData();
+            // Schedule next run after 1 minute (60000 ms)
+            handler.postDelayed(this, 60000);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        startPeriodicDatabaseCheck();
+        //startPeriodicDatabaseCheck();
 
         textViewValue = findViewById(R.id.textViewValue);
 
@@ -70,6 +90,18 @@ public class MainActivity extends AppCompatActivity {
 
         // Request necessary permissions.
         checkPermissions();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.post(analysisRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        handler.removeCallbacks(analysisRunnable);
     }
 
     private void checkPermissions() {
@@ -221,9 +253,9 @@ public class MainActivity extends AppCompatActivity {
                     db.pressureMeasurementDao().insertMeasurement(measurement);
                 }).start();
 
-                if (pressure > 6000) {
-                    runOnUiThread(() -> sendNotification(pressure));
-                }
+//                if (pressure > 6000) {
+//                    runOnUiThread(() -> sendNotification(pressure));
+//                }
 
             } catch (NumberFormatException e) {
                 Log.e("BLE", "Failed to parse voltage: " + voltageStr, e);
@@ -327,7 +359,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     private void sendNotification(double pressure) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "pressure_channel")
                 .setSmallIcon(R.drawable.baseline_priority_high_24) // replace with your icon resource
@@ -339,13 +370,110 @@ public class MainActivity extends AppCompatActivity {
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
         // Use a unique ID if you want multiple notifications, or a constant ID to update the same one.
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
             return;
         }
         notificationManager.notify(1, builder.build());
     }
 
+    private void sendYellowZoneNotification() {
+        // Build and send a yellow zone notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "pressure_channel")
+                .setSmallIcon(R.drawable.baseline_priority_high_24)
+                .setContentTitle("Yellow Zone")
+                .setContentText("Unsafe pressure: recovery period not achieved!")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        NotificationManagerCompat.from(this).notify(2, builder.build());
+    }
+
+    private void sendRedZoneNotification() {
+        // Build and send a red zone notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "pressure_channel")
+                .setSmallIcon(R.drawable.baseline_priority_high_24)
+                .setContentTitle("Red Zone")
+                .setContentText("Critical pressure condition: prolonged unsafe readings!")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        NotificationManagerCompat.from(this).notify(3, builder.build());
+    }
+
+    private void analyzePressureData() {
+        new Thread(() -> {
+            AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+            long currentTime = System.currentTimeMillis();
+            long tenMinutesAgo = currentTime - (10 * 60 * 1000L);
+            List<PressureMeasurement> measurements = db.pressureMeasurementDao().getMeasurementsSince(tenMinutesAgo);
+
+            // Ensure the measurements are sorted by timestamp.
+            Collections.sort(measurements, (m1, m2) -> Long.compare(m1.timestamp, m2.timestamp));
+
+            // Look for a spike (a value above 6000)
+            boolean highSpikeDetected = false;
+            long spikeTime = 0;
+            for (PressureMeasurement m : measurements) {
+                if (m.pressure > 6000) {
+                    highSpikeDetected = true;
+                    spikeTime = m.timestamp;
+                    break;
+                }
+            }
+
+            // If no high spike detected, we’re in a normal state.
+            if (!highSpikeDetected) {
+                currentZone = Zone.NORMAL;
+                return;
+            }
+
+            // Check for a contiguous 5-minute period after the spike with all measurements under 600.
+            Long safePeriodStart = null;
+            boolean safePeriodAchieved = false;
+            for (PressureMeasurement m : measurements) {
+                if (m.timestamp < spikeTime) continue; // Only look at data after the spike
+                if (m.pressure < 600) {
+                    if (safePeriodStart == null) {
+                        safePeriodStart = m.timestamp;
+                    }
+                    // Check if this safe period spans 5 minutes.
+                    if (m.timestamp - safePeriodStart >= (5 * 60 * 1000L)) {
+                        safePeriodAchieved = true;
+                        break;
+                    }
+                } else {
+                    // Reset safe period if a measurement is not safe
+                    safePeriodStart = null;
+                }
+            }
+
+            if (safePeriodAchieved) {
+                // Recovery achieved: reset zone state if needed.
+                if (currentZone != Zone.NORMAL) {
+                    currentZone = Zone.NORMAL;
+                    // Optionally cancel any yellow/red notifications here.
+                }
+            } else {
+                // No safe period found.
+                if (currentZone == Zone.NORMAL) {
+                    // First time detecting the unsafe condition, so move to yellow zone.
+                    currentZone = Zone.YELLOW;
+                    // We set the yellow zone start to the time of the spike (or currentTime).
+                    yellowZoneStart = spikeTime;
+                    runOnUiThread(() -> sendYellowZoneNotification());
+                } else if (currentZone == Zone.YELLOW) {
+                    // If already in yellow zone, check if another 5 minutes of unsafe data has passed.
+                    if (currentTime - yellowZoneStart >= (5 * 60 * 1000L)) {
+                        currentZone = Zone.RED;
+                        runOnUiThread(() -> sendRedZoneNotification());
+                    }
+                }
+            }
+        }).start();
+    }
 
 
 
