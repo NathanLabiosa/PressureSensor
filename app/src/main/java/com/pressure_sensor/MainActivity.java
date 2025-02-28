@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.bluetooth.le.ScanResult;
@@ -56,6 +57,9 @@ public class MainActivity extends AppCompatActivity {
 
     private Zone currentZone = Zone.NORMAL;
     private long yellowZoneStart = 0; // When we first entered yellow
+    private ListView eventListView;
+    private List<Event> eventList = new ArrayList<>();
+    private EventAdapter eventAdapter;
 
     private Handler handler = new Handler(Looper.getMainLooper());
     private Runnable analysisRunnable = new Runnable() {
@@ -74,6 +78,9 @@ public class MainActivity extends AppCompatActivity {
         //startPeriodicDatabaseCheck();
 
         textViewValue = findViewById(R.id.textViewValue);
+        eventListView = findViewById(R.id.eventListView);
+        eventAdapter = new EventAdapter(this, eventList);
+        eventListView.setAdapter(eventAdapter);
 
         // Initializes Bluetooth adapter.
         final BluetoothManager bluetoothManager =
@@ -85,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
+
 
         createNotificationChannel();
 
@@ -464,15 +472,40 @@ public class MainActivity extends AppCompatActivity {
                     // We set the yellow zone start to the time of the spike (or currentTime).
                     yellowZoneStart = spikeTime;
                     runOnUiThread(() -> sendYellowZoneNotification());
+                    onYellowZoneReached();
                 } else if (currentZone == Zone.YELLOW) {
                     // If already in yellow zone, check if another 5 minutes of unsafe data has passed.
                     if (currentTime - yellowZoneStart >= (5 * 60 * 1000L)) {
                         currentZone = Zone.RED;
                         runOnUiThread(() -> sendRedZoneNotification());
+                        onRedZoneReached();
                     }
                 }
             }
         }).start();
+    }
+
+    // Helper method to add an event.
+    private void addEvent(String description) {
+        Event newEvent = new Event(description, System.currentTimeMillis());
+        // Insert at the beginning so the most recent event is at the top
+        eventList.add(0, newEvent);
+        runOnUiThread(() -> eventAdapter.notifyDataSetChanged());
+    }
+
+    // For example, when yellow zone is reached:
+    private void onYellowZoneReached() {
+        addEvent("Yellow Zone - Instructions Provided");
+    }
+
+    // And when red zone is reached:
+    private void onRedZoneReached() {
+        addEvent("Red Zone - Instructions Provided");
+    }
+
+    // And for patient logging symptoms:
+    private void onSymptomsLogged() {
+        addEvent("Symptoms logged");
     }
 
 
