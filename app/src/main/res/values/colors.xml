@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="light_blue">#ADD8E6</color>
+    <color name="zone_green">#008000</color>
+    <color name="zone_yellow">#FFD700</color>
+    <color name="zone_red">#FF0000</color>
+    <color name="text_black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="light_gray">#ECECEC</color>
+    <color name="darker_blue">#00008B</color>
+    <color name="defaultButtonColor">#336699</color>
+    <color name="selectedButtonColor">#5577AA</color>
+
 </resources>
