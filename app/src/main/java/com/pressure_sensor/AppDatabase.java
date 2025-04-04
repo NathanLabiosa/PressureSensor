@@ -5,9 +5,10 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import android.content.Context;
 
-@Database(entities = {PressureMeasurement.class}, version = 1, exportSchema = false)
+@Database(entities = {PressureMeasurement.class, SymptomsLog.class}, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     public abstract PressureMeasurementDao pressureMeasurementDao();
+    public abstract SymptomsDao symptomsDao();
 
     // Singleton instance to prevent having multiple instances of the database opened at the same time.
     private static volatile AppDatabase INSTANCE;
@@ -18,6 +19,8 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, "pressure_database")
+                            // For development, you can use this to avoid migration issues:
+                            .fallbackToDestructiveMigration()
                             .build();
                 }
             }

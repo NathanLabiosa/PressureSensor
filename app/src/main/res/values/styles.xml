@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="CustomPainButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/pain_button_selector</item>
+        <item name="android:backgroundTint">@null</item>
+    </style>
+</resources>

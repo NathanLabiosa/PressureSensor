@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,6 +34,7 @@ import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -40,7 +42,7 @@ import androidx.core.content.ContextCompat;
 
 import java.util.UUID;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LogSymptomsBottomSheet.OnSymptomsLoggedListener {
 
     private TextView textViewValue;
     private BluetoothAdapter bluetoothAdapter;
@@ -92,6 +94,34 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
+        Button logSymptomsButton = findViewById(R.id.logSymptomsButton);
+        logSymptomsButton.setOnClickListener(v -> {
+            LogSymptomsBottomSheet sheet = new LogSymptomsBottomSheet(this);
+            sheet.show(getSupportFragmentManager(), "LogSymptomsBottomSheet");
+        });
+
+        eventListView.setOnItemClickListener((parent, view, position, id) -> {
+            Event event = eventAdapter.getItem(position);
+            if (event != null) {
+                // If it's a symptom log, check for a valid symptomLogId.
+                if (event.symptomLogId != -1) {
+                    Intent intent = new Intent(MainActivity.this, SymptomDetailActivity.class);
+                    intent.putExtra("SYMPTOM_LOG_ID", event.symptomLogId);
+                    startActivity(intent);
+                } else if (event.description.equals("Yellow Zone - Click for Instructions") ||
+                        event.description.equals("Red Zone - Click for Instructions")) {
+                    // Launch the zone instruction activity
+                    Intent intent = new Intent(MainActivity.this, ZoneDetailActivity.class);
+                    // Pass along the zone type as an extra (e.g., "red" or "yellow")
+                    if (event.description.contains("Yellow")) {
+                        intent.putExtra("ZONE_TYPE", "yellow");
+                    } else {
+                        intent.putExtra("ZONE_TYPE", "red");
+                    }
+                    startActivity(intent);
+                }
+            }
+        });
 
 
         createNotificationChannel();
@@ -239,7 +269,7 @@ public class MainActivity extends AppCompatActivity {
                 double pressure = calculatePressure(voltage); // Method to calculate pressure
 
                 // Prepare the display text for the TextView
-                String displayText = String.format("%.2f kPa of pressure at the sensor %.2f Voltage", pressure, voltage);
+                String displayText = String.format("%.2f kPa of pressure \n %.2f Voltage", pressure, voltage);
 
                 // Update UI elements: TextView and SemicircleGaugeView
                 runOnUiThread(() -> {
@@ -495,18 +525,61 @@ public class MainActivity extends AppCompatActivity {
 
     // For example, when yellow zone is reached:
     private void onYellowZoneReached() {
-        addEvent("Yellow Zone - Instructions Provided");
+        addEvent("Yellow Zone - Click for Instructions");
     }
 
     // And when red zone is reached:
     private void onRedZoneReached() {
-        addEvent("Red Zone - Instructions Provided");
+        addEvent("Red Zone - Click for Instructions");
     }
 
     // And for patient logging symptoms:
     private void onSymptomsLogged() {
         addEvent("Symptoms logged");
     }
+    private void updateZoneUI() {
+        TextView currentPressureLabel = findViewById(R.id.currentPressureLabel);
+        CardView currentPressureCard = findViewById(R.id.currentPressureCard);
+
+        // Suppose zone is an int or enum representing GREEN, YELLOW, RED
+
+        switch (currentZone) {
+            case NORMAL:
+                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_green));
+                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_green));
+                break;
+            case YELLOW:
+                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_yellow));
+                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_yellow));
+                break;
+            case RED:
+                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_red));
+                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_red));
+                break;
+        }
+    }
+
+
+    // This is called when the user hits "Submit" in the bottom sheet
+    @Override
+    public void onSymptomsLogged(int painLevel, String otherSymptoms) {
+        new Thread(() -> {
+            AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+            SymptomsLog log = new SymptomsLog();
+            log.timestamp = System.currentTimeMillis();
+            log.painLevel = painLevel;
+            log.otherSymptoms = otherSymptoms;
+            long newId = db.symptomsDao().insertSymptomsLog(log);
+
+            runOnUiThread(() -> {
+                // Create an event with the new symptom log ID
+                Event symptomEvent = new Event("Symptoms Logged", System.currentTimeMillis(), newId);
+                eventList.add(0, symptomEvent);
+                eventAdapter.notifyDataSetChanged();
+            });
+        }).start();
+    }
+
 
 
 

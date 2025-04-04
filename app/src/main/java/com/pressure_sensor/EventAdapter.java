@@ -20,16 +20,20 @@ public class EventAdapter extends ArrayAdapter<Event> {
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         if(convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.item_event, parent, false);
+            convertView = LayoutInflater.from(getContext())
+                    .inflate(R.layout.item_event, parent, false);
         }
         Event event = getItem(position);
         TextView eventTextView = convertView.findViewById(R.id.eventTextView);
 
-        // Format the timestamp
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
-        String time = sdf.format(new Date(event.timestamp));
-
-        eventTextView.setText(event.description + " - " + time);
+        // Format or set your text
+        eventTextView.setText(event.description + " - " + formatTime(event.timestamp));
         return convertView;
+    }
+
+    private String formatTime(long timestamp) {
+        // e.g., format your timestamp to a human-readable string
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        return sdf.format(new Date(timestamp));
     }
 }

@@ -1,43 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/light_blue"
     tools:context=".MainActivity">
 
-    <TextView
-        android:id="@+id/textViewValue"
-        android:layout_width="158dp"
+    <!-- 1) Top Card with rounded edges for Current Pressure display -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/currentPressureCard"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Waiting for data..."
-        android:textSize="18sp"
-        app:layout_constraintTop_toTopOf="parent"
+        android:layout_margin="12dp"
+        android:backgroundTint="@color/zone_yellow"
+        app:cardCornerRadius="16dp"
+        app:cardUseCompatPadding="true"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:ignore="MissingConstraints"
+        app:layout_constraintWidth_percent="0.8">
 
+        <TextView
+            android:id="@+id/textViewValue"
+            android:layout_width="347dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:fontFamily="@font/red_hat_regular"
+            android:text="Waiting for data..."
+            android:textAlignment="center"
+            android:textColor="@color/text_black"
+            android:textSize="20sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+    </androidx.cardview.widget.CardView>
+
+    <!-- 2) Semicircle Gauge (with 3 color zones drawn in your custom code) -->
     <com.pressure_sensor.SemicircleGaugeView
         android:id="@+id/semicircleGaugeView"
         android:layout_width="0dp"
-        android:layout_height="181dp"
-        android:layout_marginTop="60dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textViewValue" />
+        app:layout_constraintTop_toBottomOf="@id/currentPressureCard"
+        tools:ignore="MissingConstraints" />
+
+    <!-- 3) A small block below the gauge that says 'Current Pressure'
+         with a rounded background that you can color dynamically -->
+
+    <!-- 4) ListView for Events -->
+
+    <TextView
+        android:id="@+id/currentPressureLabel"
+        android:layout_width="137dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/rounded_zone_indicator"
+        android:fontFamily="@font/red_hat_regular"
+        android:padding="8dp"
+        android:text="Current \nPressure"
+        android:textAlignment="center"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintTop_toBottomOf="@id/semicircleGaugeView" />
 
     <ListView
         android:id="@+id/eventListView"
-        android:layout_width="411dp"
-        android:layout_height="257dp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="4dp"
+        android:background="@color/light_gray"
         android:divider="@android:color/darker_gray"
         android:dividerHeight="1dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
+        android:fontFamily="@font/red_hat_regular"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/semicircleGaugeView"
-        app:layout_constraintVertical_bias="0.521" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/currentPressureLabel"
+        app:layout_constraintBottom_toTopOf="@id/logSymptomsButton" />
+
+    <Button
+        android:id="@+id/logSymptomsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:fontFamily="@font/red_hat_regular"
+        android:text="Log Symptoms"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
