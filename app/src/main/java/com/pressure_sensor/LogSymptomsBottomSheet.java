@@ -22,8 +22,13 @@ public class LogSymptomsBottomSheet extends BottomSheetDialogFragment {
     private int selectedPainLevel = 0; // 0 = none selected
     private EditText otherSymptomsEditText;
 
+    // New boolean fields for additional symptoms
+    private boolean burning = false;
+    private boolean numbness = false;
+    private boolean tingling = false;
+
     public interface OnSymptomsLoggedListener {
-        void onSymptomsLogged(int painLevel, String otherSymptoms);
+        void onSymptomsLogged(int painLevel, String otherSymptoms, boolean burning, boolean numbness, boolean tingling);
     }
 
     private OnSymptomsLoggedListener callback;
@@ -43,27 +48,21 @@ public class LogSymptomsBottomSheet extends BottomSheetDialogFragment {
         TextView closeButton = view.findViewById(R.id.closeButton);
         closeButton.setOnClickListener(v -> dismiss());
 
-        // Find the pain buttons
+        // Pain buttons (as before)
         Button painButton1 = view.findViewById(R.id.painButton1);
         Button painButton2 = view.findViewById(R.id.painButton2);
         Button painButton3 = view.findViewById(R.id.painButton3);
         Button painButton4 = view.findViewById(R.id.painButton4);
         Button painButton5 = view.findViewById(R.id.painButton5);
-
-// Put them into an array for easy iteration.
         Button[] painButtons = new Button[] { painButton1, painButton2, painButton3, painButton4, painButton5 };
 
         View.OnClickListener painButtonListener = new View.OnClickListener() {
             @Override
             public void onClick(View buttonView) {
-//                 Reset the background of all pain buttons to a default (e.g., light gray)
                 for (Button btn : painButtons) {
                     btn.setSelected(false);
                 }
-                // Mark the clicked button as selected
                 buttonView.setSelected(true);
-
-                // Determine which button was pressed to update selectedPainLevel
                 int viewId = buttonView.getId();
                 if (viewId == R.id.painButton1) {
                     selectedPainLevel = 1;
@@ -85,13 +84,10 @@ public class LogSymptomsBottomSheet extends BottomSheetDialogFragment {
         painButton4.setOnClickListener(painButtonListener);
         painButton5.setOnClickListener(painButtonListener);
 
-
         // "Other Symptoms" button + EditText
         Button otherSymptomsButton = view.findViewById(R.id.otherSymptomsButton);
         otherSymptomsEditText = view.findViewById(R.id.otherSymptomsEditText);
-
         otherSymptomsButton.setOnClickListener(v -> {
-            // Toggle visibility of the EditText
             if (otherSymptomsEditText.getVisibility() == View.GONE) {
                 otherSymptomsEditText.setVisibility(View.VISIBLE);
             } else {
@@ -99,32 +95,66 @@ public class LogSymptomsBottomSheet extends BottomSheetDialogFragment {
             }
         });
 
+        // Set up new symptom fields:
+        // Burning
+        Button burningYesButton = view.findViewById(R.id.burningYesButton);
+        Button burningNoButton = view.findViewById(R.id.burningNoButton);
+        burningYesButton.setOnClickListener(v -> {
+            burning = true;
+            burningYesButton.setSelected(true);
+            burningNoButton.setSelected(false);
+        });
+        burningNoButton.setOnClickListener(v -> {
+            burning = false;
+            burningYesButton.setSelected(false);
+            burningNoButton.setSelected(true);
+        });
 
+        // Numbness
+        Button numbnessYesButton = view.findViewById(R.id.numbnessYesButton);
+        Button numbnessNoButton = view.findViewById(R.id.numbnessNoButton);
+        numbnessYesButton.setOnClickListener(v -> {
+            numbness = true;
+            numbnessYesButton.setSelected(true);
+            numbnessNoButton.setSelected(false);
+        });
+        numbnessNoButton.setOnClickListener(v -> {
+            numbness = false;
+            numbnessYesButton.setSelected(false);
+            numbnessNoButton.setSelected(true);
+        });
+
+        // Tingling
+        Button tinglingYesButton = view.findViewById(R.id.tinglingYesButton);
+        Button tinglingNoButton = view.findViewById(R.id.tinglingNoButton);
+        tinglingYesButton.setOnClickListener(v -> {
+            tingling = true;
+            tinglingYesButton.setSelected(true);
+            tinglingNoButton.setSelected(false);
+        });
+        tinglingNoButton.setOnClickListener(v -> {
+            tingling = false;
+            tinglingYesButton.setSelected(false);
+            tinglingNoButton.setSelected(true);
+        });
+
+        // Create the submit button programmatically (or add it in XML)
         Button submitButton = new Button(getContext());
         submitButton.setText("Submit");
-
-// Set the background to your custom drawable that uses defaultButtonColor
         submitButton.setBackgroundResource(R.drawable.rounded_button);
-
-// Set the text color to white
         submitButton.setTextColor(ContextCompat.getColor(getContext(), R.color.white));
-
-// Set the font to Red Hat (make sure red_hat_regular.ttf is in res/font)
         Typeface redHatFont = ResourcesCompat.getFont(getContext(), R.font.red_hat_regular);
         submitButton.setTypeface(redHatFont);
-
-// Optionally, remove any tint (if needed)
         submitButton.setBackgroundTintList(null);
-
-// Add the button to the parent view
         ((ViewGroup) view).addView(submitButton);
 
+        // Submit button listener
         submitButton.setOnClickListener(v -> {
             String otherSymptoms = otherSymptomsEditText.getVisibility() == View.VISIBLE
                     ? otherSymptomsEditText.getText().toString()
                     : "";
             if (callback != null) {
-                callback.onSymptomsLogged(selectedPainLevel, otherSymptoms);
+                callback.onSymptomsLogged(selectedPainLevel, otherSymptoms, burning, numbness, tingling);
             }
             dismiss();
         });
@@ -132,3 +162,4 @@ public class LogSymptomsBottomSheet extends BottomSheetDialogFragment {
         return view;
     }
 }
+

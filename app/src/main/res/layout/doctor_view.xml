@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- X button at the top-right corner -->
+    <TextView
+        android:id="@+id/closeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="X"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Large header for Doctor's View at the top center -->
+    <TextView
+        android:id="@+id/doctorViewHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Doctor's View"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"
+        android:fontFamily="@font/red_hat_regular"
+        android:textColor="@color/text_black"/>
+
+    <!-- Container for pressure data -->
+    <LinearLayout
+        android:id="@+id/infoContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintTop_toBottomOf="@id/doctorViewHeader"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp">
+
+        <!-- Max Pressure -->
+        <TextView
+            android:id="@+id/maxPressureTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Max Pressure: "
+            android:textSize="20sp"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/text_black"/>
+
+        <!-- Average Pressure (1 min) -->
+        <TextView
+            android:id="@+id/avg1MinTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Average Pressure (1 min): "
+            android:textSize="20sp"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/text_black"/>
+
+        <!-- Average Pressure (3 mins) -->
+        <TextView
+            android:id="@+id/avg3MinTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Average Pressure (3 mins): "
+            android:textSize="20sp"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/text_black"/>
+
+        <!-- Average Pressure (5 mins) -->
+        <TextView
+            android:id="@+id/avg5MinTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Average Pressure (5 mins): "
+            android:textSize="20sp"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/text_black"/>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/resetButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="196dp"
+        android:text="Reset"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/infoContainer"
+        style="@style/CustomPainButton"
+        android:fontFamily="@font/red_hat_regular"
+        android:textColor="@color/white"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

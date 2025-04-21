@@ -19,6 +19,21 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- New Heading TextView (for zone title) -->
+    <TextView
+        android:id="@+id/zoneHeadingTextView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Zone Heading"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/red_hat_regular"
+        android:textColor="@color/text_black"
+        app:layout_constraintTop_toBottomOf="@id/closeButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
+
     <!-- Instruction Text -->
     <TextView
         android:id="@+id/instructionTextView"
@@ -27,7 +42,7 @@
         android:text="Instructions will appear here"
         android:textSize="18sp"
         android:fontFamily="@font/red_hat_regular"
-        app:layout_constraintTop_toBottomOf="@id/closeButton"
+        app:layout_constraintTop_toBottomOf="@id/zoneHeadingTextView"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"/>

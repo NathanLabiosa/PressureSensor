@@ -5,7 +5,7 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import android.content.Context;
 
-@Database(entities = {PressureMeasurement.class, SymptomsLog.class}, version = 2, exportSchema = false)
+@Database(entities = {PressureMeasurement.class, SymptomsLog.class}, version = 4, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     public abstract PressureMeasurementDao pressureMeasurementDao();
     public abstract SymptomsDao symptomsDao();

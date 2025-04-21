@@ -17,4 +17,9 @@ public interface PressureMeasurementDao {
 
     @Query("SELECT * FROM pressure_measurements WHERE pressure > :threshold")
     List<PressureMeasurement> getMeasurementsAbove(double threshold);
+
+    // New method to directly get the maximum pressure measured since a specific time
+    @Query("SELECT MAX(pressure) FROM pressure_measurements WHERE timestamp >= :startTime")
+    Double getMaxPressureSince(long startTime);
+
 }

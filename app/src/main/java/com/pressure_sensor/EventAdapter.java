@@ -32,8 +32,8 @@ public class EventAdapter extends ArrayAdapter<Event> {
     }
 
     private String formatTime(long timestamp) {
-        // e.g., format your timestamp to a human-readable string
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        // month/day/2‑digit‑year 24h:minutes
+        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yy HH:mm", Locale.getDefault());
         return sdf.format(new Date(timestamp));
     }
 }

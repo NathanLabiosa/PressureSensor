@@ -11,6 +11,5 @@ public interface SymptomsDao {
 
     @Query("SELECT * FROM symptoms_logs WHERE id = :id")
     SymptomsLog getLogById(long id);
-
 }
 

@@ -71,31 +71,67 @@
         app:layout_constraintTop_toBottomOf="@+id/dateTimeLabel" />
 
     <TextView
+        android:id="@+id/burningValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/red_hat_regular"
+        android:text="Burning: "
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/painLevelValue" />
+
+    <!-- Other Symptoms Section (placed after the new fields) -->
+
+    <TextView
+        android:id="@+id/numbnessValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/red_hat_regular"
+        android:text="Numbness: "
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/burningValue" />
+
+    <TextView
+        android:id="@+id/tinglingValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/red_hat_regular"
+        android:text="Tingling: "
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/numbnessValue" />
+
+    <TextView
         android:id="@+id/otherSymptomsLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="1dp"
-        android:layout_marginTop="23dp"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="16dp"
         android:fontFamily="@font/red_hat_regular"
-        android:text="Other Symptoms: "
+        android:text="Other Symptoms:"
         android:textSize="18sp"
-        app:layout_constraintStart_toStartOf="@+id/painLevelLabel"
-        app:layout_constraintTop_toBottomOf="@+id/painLevelLabel" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tinglingValue" />
 
     <TextView
         android:id="@+id/otherSymptomsValue"
         android:layout_width="0dp"
-        android:layout_height="221dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="30dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="8dp"
         android:fontFamily="@font/red_hat_regular"
         android:text="N/A"
         android:textSize="18sp"
-        app:layout_constraintEnd_toEndOf="@id/detailTitle"
-        app:layout_constraintHorizontal_bias="0.937"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/otherSymptomsLabel" />
+        app:layout_constraintTop_toBottomOf="@id/otherSymptomsLabel" />
 
     <TextView
         android:id="@+id/closeButton"

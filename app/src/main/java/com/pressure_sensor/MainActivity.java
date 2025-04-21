@@ -23,6 +23,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -51,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
 
     private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
 
+
     public enum Zone {
         NORMAL,
         YELLOW,
@@ -72,6 +74,10 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
             handler.postDelayed(this, 60000);
         }
     };
+
+    private BluetoothDevice s3Device;
+    private Handler bleHandler = new Handler(Looper.getMainLooper());
+    private static final long RECONNECT_DELAY_MS = 2000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,6 +127,11 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                     startActivity(intent);
                 }
             }
+        });
+        ImageButton doctorViewButton = findViewById(R.id.doctorViewButton);
+        doctorViewButton.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, DoctorViewActivity.class);
+            startActivity(intent);
         });
 
 
@@ -231,7 +242,14 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d("BLE", "Connected to GATT server. Attempting to start service discovery: " + gatt.discoverServices());
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.d("BLE", "Disconnected from GATT server.");
+                Log.w("BLE", "S3 disconnected—will retry in " + RECONNECT_DELAY_MS + "ms");
+                gatt.close();                      // clean up old GATT
+                bleHandler.postDelayed(() -> {
+                    if (s3Device != null) {
+                        Log.d("BLE", "Re‑connecting to S3");
+                        connectToDevice(s3Device);
+                    }
+                }, RECONNECT_DELAY_MS);
             }
         }
 
@@ -339,6 +357,7 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                         if (device.getName() != null && device.getName().equals("ESP32 Voltage Meter")) {
                             scanner.stopScan(this);
                             connectToDevice(device);
+                            s3Device = device;
                         }
                     }
 
@@ -360,7 +379,7 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
     }
 
     private void connectToDevice(BluetoothDevice device) {
-        BluetoothGatt bluetoothGatt = device.connectGatt(this, false, gattCallback);
+        device.connectGatt(this, false, gattCallback);
     }
 
     private void startPeriodicDatabaseCheck() {
@@ -450,6 +469,18 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
 
             // Ensure the measurements are sorted by timestamp.
             Collections.sort(measurements, (m1, m2) -> Long.compare(m1.timestamp, m2.timestamp));
+
+            if (measurements.isEmpty()) {
+                // no data at all yet → stay NORMAL
+                return;
+            }
+            // how much real data do we have?
+            long earliestTs = measurements.get(0).timestamp;
+            long dataSpan = currentTime - earliestTs;
+            if (dataSpan < 10 * 60_000L) {
+                // only X minutes of data, not yet a full 10min window → skip analysis
+                return;
+            }
 
             // Look for a spike (a value above 6000)
             boolean highSpikeDetected = false;
@@ -562,24 +593,40 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
 
     // This is called when the user hits "Submit" in the bottom sheet
     @Override
-    public void onSymptomsLogged(int painLevel, String otherSymptoms) {
+    public void onSymptomsLogged(int painLevel, String otherSymptoms, boolean burning, boolean numbness, boolean tingling) {
         new Thread(() -> {
+            // Get the database instance.
             AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
+
+            // Create a new SymptomsLog record and populate its fields.
             SymptomsLog log = new SymptomsLog();
             log.timestamp = System.currentTimeMillis();
             log.painLevel = painLevel;
             log.otherSymptoms = otherSymptoms;
+            log.burning = burning;
+            log.numbness = numbness;
+            log.tingling = tingling;
+
+            // Insert the record into the database.
             long newId = db.symptomsDao().insertSymptomsLog(log);
 
+            // Update your UI on the main thread.
             runOnUiThread(() -> {
-                // Create an event with the new symptom log ID
+                // Create a new event that refers to this symptom log.
                 Event symptomEvent = new Event("Symptoms Logged", System.currentTimeMillis(), newId);
-                eventList.add(0, symptomEvent);
+                eventList.add(0, symptomEvent); // Insert at the top of the list.
                 eventAdapter.notifyDataSetChanged();
             });
         }).start();
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // ensure we don’t leak GATT resources when your activity goes away
+        bleHandler.removeCallbacksAndMessages(null);
+        // if you kept a BluetoothGatt field, call gatt.disconnect() & gatt.close() here
+    }
 
 
 

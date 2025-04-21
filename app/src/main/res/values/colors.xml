@@ -10,5 +10,6 @@
     <color name="darker_blue">#00008B</color>
     <color name="defaultButtonColor">#336699</color>
     <color name="selectedButtonColor">#5577AA</color>
+    <color name="translucent_darker_blue">#8000008B</color>
 
 </resources>

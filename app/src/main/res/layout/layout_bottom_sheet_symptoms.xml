@@ -5,6 +5,8 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
+    android:clipToOutline="true"
+    android:fillViewport="true"
     android:background="@drawable/rounded_bottom_sheet_bg">
 
     <!-- Top row: "Log Symptoms" text + Close (X) button -->
@@ -169,25 +171,143 @@
             android:textColor="@color/white"/>
     </LinearLayout>
 
-    <!-- "Other Symptoms" button + text input area.
-         You could show/hide an EditText when the user taps the button, or
-         directly place an EditText with a label. -->
+    <!-- Burning Section -->
+    <LinearLayout
+        android:id="@+id/burningSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/burningLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Burning:  "
+            android:textColor="@color/white"
+            android:fontFamily="@font/red_hat_regular"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/burningYesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/burningNoButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"
+            />
+    </LinearLayout>
+
+    <!-- Numbness Section -->
+    <LinearLayout
+        android:id="@+id/numbnessSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/numbnessLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Numbness: "
+            android:textColor="@color/white"
+            android:fontFamily="@font/red_hat_regular"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/numbnessYesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"
+
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/numbnessNoButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"/>
+    </LinearLayout>
+
+    <!-- Tingling Section -->
+    <LinearLayout
+        android:id="@+id/tinglingSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tinglingLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tingling \n(pins and needles): "
+            android:textColor="@color/white"
+            android:fontFamily="@font/red_hat_regular"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/tinglingYesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/tinglingNoButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            style="@style/CustomPainButton"
+            android:fontFamily="@font/red_hat_regular"
+            android:textColor="@color/white"/>
+    </LinearLayout>
+
     <Button
         android:id="@+id/otherSymptomsButton"
-        android:layout_width="wrap_content"
+        style="@style/CustomPainButton"
+        android:layout_width="154dp"
         android:layout_height="wrap_content"
-        android:text="Other Symptoms"
         android:layout_marginTop="16dp"
+        android:text="Other Symptoms"
         android:textColor="@color/white"
-        />
+        android:layout_marginBottom="16dp"/>
 
     <EditText
         android:id="@+id/otherSymptomsEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Type other symptoms..."
+        android:textColorHint="@color/white"
         android:visibility="gone"
         android:fontFamily="@font/red_hat_regular"
-        android:textColor="@color/white"/>
+        android:textColor="@color/white"
+        android:backgroundTint="@color/white"
+        />
+
 
 </LinearLayout>
