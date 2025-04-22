@@ -79,6 +79,9 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
     private Handler bleHandler = new Handler(Looper.getMainLooper());
     private static final long RECONNECT_DELAY_MS = 2000;
 
+    private BluetoothGatt bluetoothGatt;
+    private BluetoothGattCharacteristic measurementChar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -132,6 +135,20 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
         doctorViewButton.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, DoctorViewActivity.class);
             startActivity(intent);
+        });
+
+        ImageButton batteryButton = findViewById(R.id.batteryButton);
+        batteryButton.setOnClickListener(v -> {
+            if (bluetoothGatt != null && measurementChar != null) {
+                // writing to the char will trigger the ESP32 to send back its battery voltage
+                measurementChar.setValue(new byte[]{0x00});  // payload ignored by ESP32
+                boolean ok = bluetoothGatt.writeCharacteristic(measurementChar);
+                if (!ok) {
+                    Toast.makeText(this, "Failed to request battery level", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "Not connected yet", Toast.LENGTH_SHORT).show();
+            }
         });
 
 
@@ -256,29 +273,34 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                BluetoothGattService service = gatt.getService(UUID.fromString("4fafc201-1fb5-459e-8fcc-c5c9c331914b"));
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID.fromString("beb5483e-36e1-4688-b7f5-ea07361b26a8"));
-                gatt.setCharacteristicNotification(characteristic, true);
-                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
+                // 1) save for later writes
+                bluetoothGatt = gatt;
+
+                // 2) look up the characteristic and save it
+                BluetoothGattService service =
+                        gatt.getService(UUID.fromString("4fafc201-1fb5-459e-8fcc-c5c9c331914b"));
+                measurementChar =
+                        service.getCharacteristic(UUID.fromString("beb5483e-36e1-4688-b7f5-ea07361b26a8"));
+
+                // 3) enable notifications exactly as you already do
+                gatt.setCharacteristicNotification(measurementChar, true);
+                BluetoothGattDescriptor descriptor = measurementChar.getDescriptor(
+                        UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
                 if (descriptor != null) {
                     descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                    boolean stat = gatt.writeDescriptor(descriptor);
-                    if (!stat) {
-                        Log.e("BLE", "Failed to write descriptor");
-                    }
-                } else {
-                    Log.e("BLE", "Descriptor not found");
+                    gatt.writeDescriptor(descriptor);
                 }
-
-                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                gatt.writeDescriptor(descriptor);
             }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             final String voltageStr = characteristic.getStringValue(0); // "X.XX V"
-            try {
+            if (voltageStr.startsWith("BAT:")) {
+                // battery reply path
+                String batt = voltageStr.substring(4);  // remove the "BAT:" prefix
+                sendBatteryNotification(batt);
+            } else {
                 // Extract the numeric part from the voltage string
                 String numericPart = voltageStr.replace(" V", ""); // Remove the ' V' part
                 float voltage = Float.parseFloat(numericPart); // Convert string to float
@@ -313,8 +335,6 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
 //                    runOnUiThread(() -> sendNotification(pressure));
 //                }
 
-            } catch (NumberFormatException e) {
-                Log.e("BLE", "Failed to parse voltage: " + voltageStr, e);
             }
         }
 
@@ -628,6 +648,50 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
         // if you kept a BluetoothGatt field, call gatt.disconnect() & gatt.close() here
     }
 
+
+    private static final int BATTERY_NOTIFICATION_ID = 927; // any unique ID
+
+    private static final float BATTERY_MIN_VOLTAGE = 3.0f;
+    private static final float BATTERY_MAX_VOLTAGE = 4.28f;
+
+    private void sendBatteryNotification(String batteryVoltage) {
+        // Try to parse the voltage and map to 0–100%
+        String percentText;
+        try {
+            // batteryVoltage comes in like "3.75 V"
+            float voltage = Float.parseFloat(batteryVoltage.replace(" V", ""));
+            // normalize between 3.0 and 4.28
+            float pct = (voltage - BATTERY_MIN_VOLTAGE)
+                    / (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE)
+                    * 100f;
+            // clamp to [0,100]
+            pct = Math.max(0f, Math.min(100f, pct));
+            int rounded = Math.round(pct);
+            percentText = rounded + "%";
+        } catch (NumberFormatException e) {
+            // fallback on parse error
+            percentText = batteryVoltage;
+        }
+
+        // Build the notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "pressure_channel")
+                .setSmallIcon(R.drawable.battery)
+                .setContentTitle("Battery Level")
+                .setContentText(percentText)         // now shows "75%" instead of "3.75 V"
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        // Android 13+ permission guard
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        // Dispatch
+        NotificationManagerCompat.from(this)
+                .notify(BATTERY_NOTIFICATION_ID, builder.build());
+    }
 
 
 
