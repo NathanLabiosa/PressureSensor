@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -15,7 +16,7 @@ import java.util.concurrent.Executors;
 public class DoctorViewActivity extends AppCompatActivity {
 
     private TextView maxPressureTextView, avg1MinTextView, avg3MinTextView, avg5MinTextView;
-    private Button resetButton;
+    private Button resetButton, smallBtn, mediumBtn, largeBtn;
     private TextView closeButton;
     private long baselineTime;  // This will be our starting point for queries
 
@@ -51,9 +52,37 @@ public class DoctorViewActivity extends AppCompatActivity {
         // Set up the close button to finish the activity and return to the main screen
         closeButton.setOnClickListener(v -> finish());
 
+        smallBtn  = findViewById(R.id.smallMitBtn);
+        mediumBtn = findViewById(R.id.mediumMitBtn);
+        largeBtn  = findViewById(R.id.largeMitBtn);
+
+// initialize highlighting
+        updateMitigatorButtons();
+
+        smallBtn.setOnClickListener(v -> {
+            MitigatorSettings.setCurrent(MitigatorSettings.Type.SMALL);
+            updateMitigatorButtons();
+        });
+        mediumBtn.setOnClickListener(v -> {
+            MitigatorSettings.setCurrent(MitigatorSettings.Type.MEDIUM);
+            updateMitigatorButtons();
+        });
+        largeBtn.setOnClickListener(v -> {
+            MitigatorSettings.setCurrent(MitigatorSettings.Type.LARGE);
+            updateMitigatorButtons();
+        });
+
         // Start periodic updates
         handler.post(updateRunnable);
     }
+
+    private void updateMitigatorButtons() {
+        MitigatorSettings.Type sel = MitigatorSettings.getCurrent();
+        smallBtn.setEnabled(sel != MitigatorSettings.Type.SMALL);
+        mediumBtn.setEnabled(sel != MitigatorSettings.Type.MEDIUM);
+        largeBtn.setEnabled(sel != MitigatorSettings.Type.LARGE);
+    }
+
 
     @Override
     protected void onDestroy() {

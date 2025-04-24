@@ -308,12 +308,18 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                 // Calculate the pressure using the provided equation
                 double pressure = calculatePressure(voltage); // Method to calculate pressure
 
-                // Prepare the display text for the TextView
-                String displayText = String.format("%.2f kPa of pressure \n %.2f Voltage", pressure, voltage);
-
                 // Update UI elements: TextView and SemicircleGaugeView
                 runOnUiThread(() -> {
-                    textViewValue.setText(displayText);
+                    // 1) Update the zone-status label
+                    String status;
+                    if (pressure < 666.612) {
+                        status = "Acceptable Pressure";          // green
+                    } else if (pressure < 6666.12) {
+                        status = "At Risk Pressure";             // yellow
+                    } else {
+                        status = "Dangerous Pressure";           // red
+                    }
+                    textViewValue.setText(status);
 
                     // Find the gauge view and update its pressure value
                     SemicircleGaugeView gaugeView = findViewById(R.id.semicircleGaugeView);
@@ -331,35 +337,28 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                     db.pressureMeasurementDao().insertMeasurement(measurement);
                 }).start();
 
-//                if (pressure > 6000) {
-//                    runOnUiThread(() -> sendNotification(pressure));
-//                }
 
             }
         }
-
+        private static final String TAG = "CalcPressure";
         private double calculatePressure(double voltage) {
-            // Assuming the quadratic form: Ax^2 + Bx + C = voltage
-            // Here A, B, and C need to be derived from the equation by rearranging it to the standard quadratic form.
-            float A = (float) -0.000000003;
-            float B = (float) 0.0002;
-            float C = (float) (0.3131 - voltage);
+            // grab the current setting
+            MitigatorSettings.Type type = MitigatorSettings.getCurrent();
+            // log it so you’ll see it in logcat whenever this method runs
+            Log.d(TAG, "calculatePressure() using mitigator: " + type);
 
-            // Calculate the discriminant
-            float discriminant = B * B - 4 * A * C;
-
-            // Check if discriminant is positive
-            if (discriminant >= 0) {
-                // Two possible solutions for pressure (x)
-                float x1 = (float) ((-B + Math.sqrt(discriminant)) / (2 * A));
-                float x2 = (float) ((-B - Math.sqrt(discriminant)) / (2 * A));
-
-                // Assuming physical constraints mean pressure must be positive and within sensor range
-                return Math.min(x1, x2);
-
-            } else {
-                // No real roots; handle error or use default value
-                return 0; // Default or error value
+            switch (type) {
+                case SMALL:
+                    Log.d(TAG, String.format("SMALL formula: voltage=%.2f", voltage));
+                    //Voltage = -0.0502*Pressure + 2.226
+                    return Math.max((voltage - 2.226) / -0.0502 * 1000,0);
+                case LARGE:
+                    Log.d(TAG, String.format("LARGE formula: voltage=%.2f", voltage));
+                    return Math.max((voltage - 2.0682) / -0.0494 * 1000,0);
+                case MEDIUM:
+                default:
+                    Log.d(TAG, String.format("MEDIUM formula: voltage=%.2f", voltage));
+                    return Math.max((voltage - 2.1265) / -0.0506 * 1000,0);
             }
         }
 
