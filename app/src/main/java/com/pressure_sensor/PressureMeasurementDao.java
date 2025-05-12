@@ -22,4 +22,7 @@ public interface PressureMeasurementDao {
     @Query("SELECT MAX(pressure) FROM pressure_measurements WHERE timestamp >= :startTime")
     Double getMaxPressureSince(long startTime);
 
+    @Query("SELECT * FROM pressure_measurements ORDER BY timestamp ASC")
+    List<PressureMeasurement> getAllMeasurements();
+
 }

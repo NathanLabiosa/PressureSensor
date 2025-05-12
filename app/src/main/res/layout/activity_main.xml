@@ -30,7 +30,7 @@
             android:fontFamily="@font/red_hat_regular"
             android:text="Waiting for data..."
             android:textAlignment="center"
-            android:textColor="@color/text_black"
+            android:textColor="@color/white"
             android:textSize="20sp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>

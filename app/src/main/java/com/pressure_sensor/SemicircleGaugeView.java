@@ -13,8 +13,8 @@ public class SemicircleGaugeView extends View {
     private float maxPressure = 10000f; // e.g., 10,000 as the max
 
     // Cutoffs for each zone
-    private float greenCutoff = 666f;
-    private float yellowCutoff = 6666f;
+    private float greenCutoff = 666.66f;
+    private float yellowCutoff = 6666.66f;
 
     public SemicircleGaugeView(Context context, AttributeSet attrs) {
         super(context, attrs);

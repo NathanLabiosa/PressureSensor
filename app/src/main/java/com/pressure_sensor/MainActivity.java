@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -311,13 +312,14 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                 // Update UI elements: TextView and SemicircleGaugeView
                 runOnUiThread(() -> {
                     // 1) Update the zone-status label
+                    updatePressureZoneUI(pressure);
                     String status;
                     if (pressure < 666.612) {
-                        status = "Acceptable Pressure";          // green
+                        status = "Acceptable Pressure ";          // green
                     } else if (pressure < 6666.12) {
-                        status = "At Risk Pressure";             // yellow
+                        status = "At Risk Pressure ";             // yellow
                     } else {
-                        status = "Dangerous Pressure";           // red
+                        status = "Dangerous Pressure ";           // red
                     }
                     textViewValue.setText(status);
 
@@ -339,6 +341,7 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
 
 
             }
+            runOnUiThread(() -> analyzePressureData());
         }
         private static final String TAG = "CalcPressure";
         private double calculatePressure(double voltage) {
@@ -479,29 +482,40 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
         NotificationManagerCompat.from(this).notify(3, builder.build());
     }
 
+    private static final String TAG = "ZoneAnalysis";
     private void analyzePressureData() {
         new Thread(() -> {
             AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
             long currentTime = System.currentTimeMillis();
             long tenMinutesAgo = currentTime - (10 * 60 * 1000L);
-            List<PressureMeasurement> measurements = db.pressureMeasurementDao().getMeasurementsSince(tenMinutesAgo);
 
-            // Ensure the measurements are sorted by timestamp.
-            Collections.sort(measurements, (m1, m2) -> Long.compare(m1.timestamp, m2.timestamp));
-
-            if (measurements.isEmpty()) {
-                // no data at all yet → stay NORMAL
+            // 1) First, pull *all* measurements so we can test for a full 10-min span:
+            List<PressureMeasurement> allMeasurements =
+                    db.pressureMeasurementDao().getAllMeasurements();  // assumes you’ve added this DAO method
+            if (allMeasurements.isEmpty()) {
+                // no data at all yet → nothing to do
                 return;
             }
-            // how much real data do we have?
-            long earliestTs = measurements.get(0).timestamp;
-            long dataSpan = currentTime - earliestTs;
-            if (dataSpan < 10 * 60_000L) {
-                // only X minutes of data, not yet a full 10min window → skip analysis
+            // sort oldest→newest
+            Collections.sort(allMeasurements, (a, b) -> Long.compare(a.timestamp, b.timestamp));
+
+            long earliestTs = allMeasurements.get(0).timestamp;
+            // if the earliest measurement is *newer* than (now - 10min), we don't yet
+            // have a full 10 minutes of samples, so bail out
+            if (earliestTs > tenMinutesAgo) {
+                Log.d(TAG, "Not yet 10 minutes of history; skipping analysis");
+                currentZone = Zone.NORMAL;
                 return;
             }
 
-            // Look for a spike (a value above 6000)
+            // 2) Now fetch just the last 10 minutes’ worth of data
+            List<PressureMeasurement> measurements =
+                    db.pressureMeasurementDao().getMeasurementsSince(tenMinutesAgo);
+            Collections.sort(measurements, (m1, m2) ->
+                    Long.compare(m1.timestamp, m2.timestamp));
+            Log.d(TAG, "Analysis starting");
+
+            // 1) Look for a high spike (>6000)
             boolean highSpikeDetected = false;
             long spikeTime = 0;
             for (PressureMeasurement m : measurements) {
@@ -512,54 +526,51 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
                 }
             }
 
-            // If no high spike detected, we’re in a normal state.
+            // 2) No spike → back to NORMAL
             if (!highSpikeDetected) {
                 currentZone = Zone.NORMAL;
                 return;
             }
 
-            // Check for a contiguous 5-minute period after the spike with all measurements under 600.
-            Long safePeriodStart = null;
-            boolean safePeriodAchieved = false;
+            // 3) Check for a 5-minute safe stretch (<600) after the spike
+            Long safeStart = null;
+            boolean safeAchieved = false;
             for (PressureMeasurement m : measurements) {
-                if (m.timestamp < spikeTime) continue; // Only look at data after the spike
+                if (m.timestamp < spikeTime) continue;
                 if (m.pressure < 600) {
-                    if (safePeriodStart == null) {
-                        safePeriodStart = m.timestamp;
-                    }
-                    // Check if this safe period spans 5 minutes.
-                    if (m.timestamp - safePeriodStart >= (5 * 60 * 1000L)) {
-                        safePeriodAchieved = true;
+                    if (safeStart == null) safeStart = m.timestamp;
+                    if (m.timestamp - safeStart >= 5 * 60_000L) {
+                        safeAchieved = true;
                         break;
                     }
                 } else {
-                    // Reset safe period if a measurement is not safe
-                    safePeriodStart = null;
+                    safeStart = null;
                 }
             }
 
-            if (safePeriodAchieved) {
-                // Recovery achieved: reset zone state if needed.
+            if (safeAchieved) {
+                // recovery → back to NORMAL if needed
                 if (currentZone != Zone.NORMAL) {
                     currentZone = Zone.NORMAL;
-                    // Optionally cancel any yellow/red notifications here.
                 }
             } else {
-                // No safe period found.
+                // still unsafe
                 if (currentZone == Zone.NORMAL) {
-                    // First time detecting the unsafe condition, so move to yellow zone.
+                    // first time → YELLOW
                     currentZone = Zone.YELLOW;
-                    // We set the yellow zone start to the time of the spike (or currentTime).
-                    yellowZoneStart = spikeTime;
-                    runOnUiThread(() -> sendYellowZoneNotification());
-                    onYellowZoneReached();
-                } else if (currentZone == Zone.YELLOW) {
-                    // If already in yellow zone, check if another 5 minutes of unsafe data has passed.
-                    if (currentTime - yellowZoneStart >= (5 * 60 * 1000L)) {
-                        currentZone = Zone.RED;
-                        runOnUiThread(() -> sendRedZoneNotification());
+                    yellowZoneStart = currentTime;
+                    runOnUiThread(() -> {
+                        sendYellowZoneNotification();
+                        onYellowZoneReached();
+                    });
+                } else if (currentZone == Zone.YELLOW
+                        && currentTime - yellowZoneStart >= 5 * 60_000L) {
+                    // 5 more minutes in YELLOW → RED
+                    currentZone = Zone.RED;
+                    runOnUiThread(() -> {
+                        sendRedZoneNotification();
                         onRedZoneReached();
-                    }
+                    });
                 }
             }
         }).start();
@@ -587,27 +598,28 @@ public class MainActivity extends AppCompatActivity implements LogSymptomsBottom
     private void onSymptomsLogged() {
         addEvent("Symptoms logged");
     }
-    private void updateZoneUI() {
-        TextView currentPressureLabel = findViewById(R.id.currentPressureLabel);
-        CardView currentPressureCard = findViewById(R.id.currentPressureCard);
-
-        // Suppose zone is an int or enum representing GREEN, YELLOW, RED
-
-        switch (currentZone) {
-            case NORMAL:
-                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_green));
-                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_green));
-                break;
-            case YELLOW:
-                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_yellow));
-                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_yellow));
-                break;
-            case RED:
-                currentPressureLabel.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_red));
-                currentPressureCard.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.zone_red));
-                break;
+    private void updatePressureZoneUI(double pressure) {
+        // pick the correct color
+        @ColorRes int colorRes;
+        if (pressure < 600) {
+            colorRes = R.color.zone_green;     // safe
+        } else if (pressure < 6000) {
+            colorRes = R.color.zone_yellow;    // at risk
+        } else {
+            colorRes = R.color.zone_red;       // dangerous
         }
+
+        // find your views
+        TextView label = findViewById(R.id.currentPressureLabel);
+        CardView card  = findViewById(R.id.currentPressureCard);
+
+        // apply the tint
+        label.setBackgroundTintList(
+                ContextCompat.getColorStateList(this, colorRes));
+        card.setBackgroundTintList(
+                ContextCompat.getColorStateList(this, colorRes));
     }
+
 
 
     // This is called when the user hits "Submit" in the bottom sheet

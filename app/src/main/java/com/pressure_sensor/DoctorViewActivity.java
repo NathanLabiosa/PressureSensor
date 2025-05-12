@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
 
 public class DoctorViewActivity extends AppCompatActivity {
 
-    private TextView maxPressureTextView, avg1MinTextView, avg3MinTextView, avg5MinTextView;
+    private TextView maxPressureTextView, avg1MinTextView, avg3MinTextView, avg5MinTextView, currentPressureLabelDoc, currentMitigatorTextView;
     private Button resetButton, smallBtn, mediumBtn, largeBtn;
     private TextView closeButton;
     private long baselineTime;  // This will be our starting point for queries
@@ -40,6 +40,8 @@ public class DoctorViewActivity extends AppCompatActivity {
         avg5MinTextView = findViewById(R.id.avg5MinTextView);
         resetButton = findViewById(R.id.resetButton);
         closeButton = findViewById(R.id.closeButton);
+        currentPressureLabelDoc    = findViewById(R.id.currentPressureLabelDoc);
+        currentMitigatorTextView   = findViewById(R.id.currentMitigatorTextView);
 
         // Set the initial baseline. For example, show the last 10 minutes by default.
         baselineTime = System.currentTimeMillis() - (10 * 60 * 1000L);
@@ -81,6 +83,10 @@ public class DoctorViewActivity extends AppCompatActivity {
         smallBtn.setEnabled(sel != MitigatorSettings.Type.SMALL);
         mediumBtn.setEnabled(sel != MitigatorSettings.Type.MEDIUM);
         largeBtn.setEnabled(sel != MitigatorSettings.Type.LARGE);
+
+        String selection = sel.name().substring(0,1)
+                + sel.name().substring(1).toLowerCase();   // e.g. “Medium”
+        currentMitigatorTextView.setText("Current Size: " + selection);
     }
 
 
@@ -124,13 +130,19 @@ public class DoctorViewActivity extends AppCompatActivity {
             Double maxPressureValue = db.pressureMeasurementDao().getMaxPressureSince(baselineTime);
             double maxPressure = (maxPressureValue == null) ? 0.0 : maxPressureValue;
 
+            double currentPressure = measurements.isEmpty()
+                    ? 0.0
+                    : measurements.get(measurements.size() - 1).pressure;
+
             runOnUiThread(() -> {
                 // "%.2f" means “floating‑point with 2 digits after the decimal”
+                String curStr  = String.format(Locale.getDefault(), "Current Pressure: %.2f", currentPressure);
                 String maxStr  = String.format(Locale.getDefault(), "Max Pressure: %.2f", maxPressure);
                 String avg1Str = String.format(Locale.getDefault(), "Average Pressure (1 min): %.2f", avg1);
                 String avg3Str = String.format(Locale.getDefault(), "Average Pressure (3 mins): %.2f", avg3);
                 String avg5Str = String.format(Locale.getDefault(), "Average Pressure (5 mins): %.2f", avg5);
 
+                currentPressureLabelDoc.setText((curStr));
                 maxPressureTextView.setText(maxStr);
                 avg1MinTextView .setText(avg1Str);
                 avg3MinTextView .setText(avg3Str);
